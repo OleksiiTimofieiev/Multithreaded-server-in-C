@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <stdbool.h>
 #include <limits.h>
+#include "myqueue.h"
 
 // adding the threads library
 #include <pthread.h>
@@ -14,18 +15,29 @@
 #define BUFSIZE             4096
 #define SOCKET_ERROR        (-1)
 #define SERVER_BACKLOG      100 // amount of connections to handle
+#define THREAD_POOL_SIZE    20
+
+pthread_t                   thread_pool[THREAD_POOL_SIZE];
+pthread_mutex_t             mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct sockaddr_in  SA_IN;
 typedef struct sockaddr     SA;
 
 void*                       handle_connection(void *p_client_socket);
 int                         check(int exp, const char *msg);
+void*                       thread_function(void*arg);
 
 
 int main(int argc, char **argv)
 {
     int server_socket, client_socket, addr_size;
     SA_IN server_addr, client_addr;
+
+    for (size_t i = 0; i < THREAD_POOL_SIZE; i++)
+    {
+        pthread_create(&thread_pool[i], NULL, thread_function, NULL);
+    }
+    
 
     check((server_socket = socket(AF_INET, SOCK_STREAM, 0)), "Failed to create socket");
 
@@ -48,11 +60,35 @@ int main(int argc, char **argv)
 
         printf("Connected !\n");
 
-        pthread_t t;
+        // 1. new  thread for the each connection
+        /* pthread_t t;
+            int *pclient = malloc(sizeof(int));
+            *pclient = client_socket;
+            pthread_create(&t, NULL, handle_connection, pclient);
+        */
 
+        // 2. thread pool basic
         int *pclient = malloc(sizeof(int));
         *pclient = client_socket;
-        pthread_create(&t, NULL, handle_connection, pclient);
+        pthread_mutex_lock(&mutex);
+        enqueue(pclient);
+        pthread_mutex_unlock(&mutex);
+
+    }
+}
+
+void*   thread_function(void *arg)
+{
+    while (true)
+    {
+        pthread_mutex_lock(&mutex);
+        int *pclient = dequeue();
+        pthread_mutex_unlock(&mutex);
+        
+        if (pclient) {
+            // we have a connection
+            handle_connection(pclient);
+        }
     }
 }
 
