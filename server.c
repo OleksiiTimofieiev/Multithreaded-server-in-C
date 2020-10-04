@@ -88,6 +88,7 @@ void*   thread_function(void *arg)
             pthread_cond_wait(&condition_var, &mutex);
             pclient = dequeue();
         }
+        
         pthread_mutex_unlock(&mutex);
         
         if (pclient) {
