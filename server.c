@@ -10,7 +10,7 @@
 #define SERVERPORT          8989
 #define BUFSIZE             4096
 #define SOCKET_ERROR        (-1)
-#define SERVER_BACKLOG      1
+#define SERVER_BACKLOG      100 // amount of connections to handle
 
 typedef struct sockaddr_in  SA_IN;
 typedef struct sockaddr     SA;
@@ -46,8 +46,6 @@ int main(int argc, char **argv)
         printf("Connected !\n");
 
         handle_connection(client_socket);
-
-        return 0;
     }
 }
 
