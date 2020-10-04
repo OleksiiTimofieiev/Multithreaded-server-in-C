@@ -19,6 +19,7 @@
 
 pthread_t                   thread_pool[THREAD_POOL_SIZE];
 pthread_mutex_t             mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t              condition_var = PTHREAD_COND_INITIALIZER;
 
 typedef struct sockaddr_in  SA_IN;
 typedef struct sockaddr     SA;
@@ -34,11 +35,8 @@ int main(int argc, char **argv)
     SA_IN server_addr, client_addr;
 
     for (size_t i = 0; i < THREAD_POOL_SIZE; i++)
-    {
         pthread_create(&thread_pool[i], NULL, thread_function, NULL);
-    }
     
-
     check((server_socket = socket(AF_INET, SOCK_STREAM, 0)), "Failed to create socket");
 
     // initialize the address struct
@@ -71,6 +69,7 @@ int main(int argc, char **argv)
         int *pclient = malloc(sizeof(int));
         *pclient = client_socket;
         pthread_mutex_lock(&mutex);
+        pthread_cond_signal(&condition_var);
         enqueue(pclient);
         pthread_mutex_unlock(&mutex);
 
@@ -81,14 +80,21 @@ void*   thread_function(void *arg)
 {
     while (true)
     {
+        int *pclient;
         pthread_mutex_lock(&mutex);
-        int *pclient = dequeue();
+
+        if ((pclient = dequeue()) == NULL)
+        {
+            pthread_cond_wait(&condition_var, &mutex);
+            pclient = dequeue();
+        }
         pthread_mutex_unlock(&mutex);
         
         if (pclient) {
             // we have a connection
             handle_connection(pclient);
         }
+        // else sleep 1
     }
 }
 
